@@ -8,7 +8,8 @@ import os
 from importlib.resources import files
 from typing import Any
 
-from l2l3_datamodel.structure.datamodel.metadata.metadata import PreprocessingMetadata
+#Simon
+#from l2l3_datamodel.structure.datamodel.metadata.metadata import PreprocessingMetadata
 
 
 def get_config_path() -> str:

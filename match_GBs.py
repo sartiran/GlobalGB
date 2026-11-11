@@ -378,7 +378,10 @@ class GBMatchingPipeline:
         self.waveform_calc: Optional[WaveformCalculator] = None
         self.matcher: Optional[SignalMatcher] = None
         self.frequencies: List[Tuple[float, float]] = []
-        
+        #Simon
+        #Read the orbits path, if the config file does not contain it, set it to "".
+        self.orbitspath = getattr(self.config, "orbits_path", "")
+ 
     def setup(self, data_path: Optional[str] = None):
         """Initialize data loader, waveform generator, and matcher."""
         
@@ -391,18 +394,36 @@ class GBMatchingPipeline:
         self.loader._load_mojito_wdwd_catalog()
         
         # Load orbits and create waveform generator
-        with h5py.File(data_path, 'r') as fid:
-            orbits_data = fid['orbits']
-            sampling = dict(orbits_data["sampling"].attrs)
-            orbits = lisaorbits.InterpolatedOrbits(
-                np.arange(sampling["t0"], sampling["t0"] + sampling["duration"], sampling["dt"]),
-                np.stack([orbits_data["sc_position_1"][:],
-                         orbits_data["sc_position_2"][:],
-                         orbits_data["sc_position_3"][:]]).swapaxes(0, 1),
-                np.stack([orbits_data["sc_velocity_1"][:],
-                         orbits_data["sc_velocity_2"][:],
-                         orbits_data["sc_velocity_3"][:]]).swapaxes(0, 1)
-            )
+        #Start Simon
+        if self.orbitspath:
+            with h5py.File(self.orbitspath, "r") as f:
+
+                t0 = f['/'].attrs['t0']
+                dt = f['/'].attrs['dt']
+                size = f['/'].attrs['size']
+                duration = size * dt
+                #print(t0, dt, size, duration)
+
+                t_grid = np.arange(t0, t0 + duration, dt)
+
+                #print(t_grid)
+                spacecraft_positions = f['/tcb/x'][:]
+                spacecraft_velocities = f['/tcb/v'][:]
+                orbits = lisaorbits.InterpolatedOrbits(t_grid, spacecraft_positions, spacecraft_velocities)
+            #End Simon
+        else:
+            with h5py.File(data_path, 'r') as fid:
+                orbits_data = fid['orbits']
+                sampling = dict(orbits_data["sampling"].attrs)
+                orbits = lisaorbits.InterpolatedOrbits(
+                    np.arange(sampling["t0"], sampling["t0"] + sampling["duration"], sampling["dt"]),
+                    np.stack([orbits_data["sc_position_1"][:],
+                             orbits_data["sc_position_2"][:],
+                             orbits_data["sc_position_3"][:]]).swapaxes(0, 1),
+                    np.stack([orbits_data["sc_velocity_1"][:],
+                             orbits_data["sc_velocity_2"][:],
+                             orbits_data["sc_velocity_3"][:]]).swapaxes(0, 1)
+                )
         
         self.fgb = JaxGB(
             orbits=orbits,

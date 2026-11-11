@@ -94,6 +94,9 @@ class GBSearchRunner:
         # for this run should be stored.
         self.datapath = self.cfg.data_path
         self.savepath = self.cfg.save_path
+        #Simon
+        #Read the orbits path, if the config file does not contain it, set it to "".
+        self.orbitspath = getattr(self.cfg, "orbits_path", "")
 
         # Deterministic numpy RNG for reproducibility of any stochastic steps
         # (in particular the optimisers in `search_utils_GB`).
@@ -140,24 +143,44 @@ class GBSearchRunner:
         #     self.tdi_ts_residual = fid["residual"][:]
         # self.tdi_fs_residual = {ch: np.fft.rfft(self.tdi_ts_residual[ch], axis=0) for ch in self.cfg.channel_combination}
 
-        with h5py.File(self.datapath, "r") as fid:
-            orbits_data = fid["orbits"]
-            sampling = dict(orbits_data["sampling"].attrs)
-            t_grid = np.arange(sampling["t0"], sampling["t0"] + sampling["duration"], sampling["dt"])
-            spacecraft_positions = np.stack(
-                [
-                    orbits_data["sc_position_1"][:],
-                    orbits_data["sc_position_2"][:],
-                    orbits_data["sc_position_3"][:],
-                ]
-            ).swapaxes(0, 1)
-            spacecraft_velocities = np.stack(
-                [
-                    orbits_data["sc_velocity_1"][:],
-                    orbits_data["sc_velocity_2"][:],
-                    orbits_data["sc_velocity_3"][:],
-                ]
-            ).swapaxes(0, 1)
+        print("**** read orbits *****")
+        print("Data path", self.datapath)
+        print("Orbit path", self.orbitspath)
+
+        #Start Simon
+        if self.orbitspath:
+            with h5py.File(self.orbitspath, "r") as f:
+
+                t0 = f['/'].attrs['t0']
+                dt = f['/'].attrs['dt']
+                size = f['/'].attrs['size']
+                duration = size * dt
+                #print(t0, dt, size, duration)
+
+                t_grid = np.arange(t0, t0 + duration, dt)
+
+                spacecraft_positions = f['/tcb/x'][:]
+                spacecraft_velocities = f['/tcb/v'][:]
+            #End Simon
+        else:
+            with h5py.File(self.datapath, "r") as fid:
+                orbits_data = fid["orbits"]
+                sampling = dict(orbits_data["sampling"].attrs)
+                t_grid = np.arange(sampling["t0"], sampling["t0"] + sampling["duration"], sampling["dt"])
+                spacecraft_positions = np.stack(
+                    [
+                        orbits_data["sc_position_1"][:],
+                        orbits_data["sc_position_2"][:],
+                        orbits_data["sc_position_3"][:],
+                    ]
+                ).swapaxes(0, 1)
+                spacecraft_velocities = np.stack(
+                    [
+                        orbits_data["sc_velocity_1"][:],
+                        orbits_data["sc_velocity_2"][:],
+                        orbits_data["sc_velocity_3"][:],
+                    ]
+                ).swapaxes(0, 1)
 
         orbits = lisaorbits.InterpolatedOrbits(t_grid, spacecraft_positions, spacecraft_velocities)
 

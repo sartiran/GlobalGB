@@ -17,8 +17,8 @@ from globalGB.config import mojito_preprocessing_pipeline_kwargs
 
 class LISADataLoader:
     """Unified data loader for LISA datasets (Radler, Sangria, Spritz, Mojito, Windowed)"""
-    
-    SUPPORTED_DATASETS = ['Radler', 'Sangria', 'Spritz', 'Mojito', 'Windowed']
+    #Simon 
+    SUPPORTED_DATASETS = ['Radler', 'Sangria', 'Spritz', 'Mojito', 'Windowed', 'tdi_combined']
     
     def __init__(self, config: GBConfig):
         """
@@ -220,7 +220,6 @@ class LISADataLoader:
             n_orbit = (
                 int(load_days * 86400 * orbit_sampling.fs) if load_days else orbit_sampling.size
             )
-
             data = {
                 # ── TDI observables ──────────────────────────────────────────────────
                 "tdis": {
@@ -268,6 +267,15 @@ class LISADataLoader:
                     "pipeline_name": f.pipeline_names,
                 },
             }
+        #print(channel_combination)
+        #print("X:")
+        #print(data["tdis"]["X"])
+        #print("fs: ", data["fs"], "dt: ", data["dt"], "t0: ", t0)
+        #print("t_tdi", len(data["t_tdi"]))
+        #print(data["t_tdi"])
+        #print("t", len(data["tdis"]["t"]))
+        #print(data["tdis"]["t"])
+        #print("laser frequency", data["metadata"]["laser_frequency"])
 
         n_samples = len(data["tdis"]["X"])
         duration = n_samples * data["dt"]
@@ -311,6 +319,113 @@ class LISADataLoader:
         self.Tobs = float(len(td.data[self.channel_combination[-1]])) * td.dt # Tobs after trimming
         self.t0 = td.t0 # Start time after trimming
 
+    def _load_tdi_combined(self, data_path=None, dt=None, channel_combination=None, **kwargs):
+        """Load tdi_combinded files from GeeMoo"""
+        if dt is None:
+            self.dt = self.config.dt
+        else:
+            self.dt = dt
+        if data_path is None:
+            data_path = self.config.data_path
+        else:
+            data_path = data_path
+        if channel_combination is None:
+            self.channel_combination = self.config.channel_combination
+        else:
+            self.channel_combination = channel_combination
+        
+        load_days = None
+
+        #Simon Start
+        with h5py.File(data_path, 'r') as f:
+            axis0_group = f['data/grid/axis0']
+
+            dt = float(axis0_group.attrs['step'])
+            t0 = float(axis0_group.attrs['start'])
+            size = float(axis0_group.attrs['num'])
+
+            print(dt, t0, size)
+
+            entries = f["data/entries"]
+            X = entries[0, 0, 0, 0, :]
+            Y = entries[0, 1, 0, 0, :]
+            Z = entries[0, 2, 0, 0, :]
+
+            print(X)
+            print(Y)
+            print(Z)
+
+            print(channel_combination)
+
+
+            data = {
+                "tdis": {
+                    "X": X,
+                    "Y": Y,
+                    "Z": Z,
+                    "A": (Z - X) / np.sqrt(2),
+                    "E": (X - 2 * Y + Z) / np.sqrt(6),
+                    "T": (X + Y + Z) / np.sqrt(3),
+                },
+                "fs": 1.0 / dt,
+                "dt": dt,
+                "t_tdi": t0 + np.arange(size) * dt,
+                "metadata": {
+                    "laser_frequency": 1.0,
+                    "pipeline_name": "tdi_combined",
+                },
+            }
+        #Simon End
+
+
+        #print(channel_combination)
+        #print("X")
+        #print(data["tdis"]["X"])
+        #print(data["fs"], data["dt"])
+        #print(data["t_tdi"])
+        #print("laser frequency", data["laser_frequency"])
+
+        n_samples = len(data["tdis"]["X"])
+        duration = n_samples * data["dt"]
+        self.Tobs_original = float(duration)
+        pipeline_kwargs = mojito_preprocessing_pipeline_kwargs(self.dt)
+        downsample_kwargs = pipeline_kwargs["downsample_kwargs"]
+        filter_kwargs = dict(pipeline_kwargs["filter_kwargs"])
+        trim_kwargs = pipeline_kwargs["trim_kwargs"]
+        window_kwargs = pipeline_kwargs["window_kwargs"]
+
+        Nyquist_data = 1 / (2 * data["dt"])
+        if filter_kwargs["lowpass_cutoff"] == Nyquist_data:
+            filter_kwargs["lowpass_cutoff"] = None
+
+        processed_segments = process_pipeline(
+            data,
+            downsample_kwargs=downsample_kwargs,
+            filter_kwargs=filter_kwargs,
+            trim_kwargs=trim_kwargs,
+            window_kwargs=window_kwargs,
+            channels=self.channel_combination,
+        )
+
+        td = processed_segments["segment0"]
+        print (td)
+        print (td.data.keys())
+        print (td.dt, td.fs)
+        print (td.t0)
+        
+
+
+        # Convert from frequency to fractional frequency
+        self.CENTRAL_FREQ = data["metadata"]["laser_frequency"]
+
+        self.freq = np.fft.rfftfreq(td.N, d=td.dt)
+        self.tdi_ts = {ch: td.data[ch] for ch in td.channels}
+        # self.tdi_ts = {ch: TimeSeries(td.data[ch], dt=td.dt, t0=data.t0) for ch in td.channels}
+        self.tdi_fs = {ch: np.fft.rfft(td.data[ch])*td.dt  for ch in td.channels}
+        self.tdi_fs['freq'] = self.freq
+
+        self.Tobs = float(len(td.data[self.channel_combination[-1]])) * td.dt # Tobs after trimming
+        self.t0 = td.t0 # Start time after trimming
 
     
     def _load_mojito_catalog(self):
