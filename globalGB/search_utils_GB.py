@@ -28,6 +28,7 @@ from copy import deepcopy
 import jax.numpy as jnp
 import jax
 from jaxgb.jaxgb import JaxGB
+from jaxgb.window import get_window
 
 from eryn.ensemble import EnsembleSampler
 from eryn.prior import ProbDistContainer, uniform_dist
@@ -41,6 +42,7 @@ if not hasattr(np, 'in1d'):
 # from ldc.lisa.noise import get_noise_model
 
 from .GB_boundaries import boundaries_dict
+from globalGB.config import mojito_preprocessing_pipeline_kwargs
 
 # customized settings
 plot_parameter = {  # 'backend': 'ps',
@@ -110,6 +112,10 @@ class GBConfig:
     def __init__(self, config: dict):
         for key, value in config.items():
             setattr(self, key, value)
+
+def jaxgb_window(dt, bsize):
+    _win = mojito_preprocessing_pipeline_kwargs(dt)["window_kwargs"]
+    return get_window((_win["window"], _win["alpha"]), bsize)
 
 
 def scaletooriginal_jax(previous_max, boundaries):
@@ -559,11 +565,18 @@ class GB_Searcher:
         if get_tdi is not None:
             self.get_tdi = get_tdi
         else:
+
             number_frequency_bins = len(self.freq)
             # set N to the next power of 2 greater than number_frequency_bins, but maximum 2**11 and minimum 2**6
             self.N = np.min([int(2**(np.ceil(np.log2(number_frequency_bins)))), 2**11])
             self.N = np.max([self.N, 2**6])
-            self.fgb = JaxGB(orbits=waveform_args['orbits'],  t_obs=waveform_args['Tobs'], t0=waveform_args['t0'], n=self.N)
+            self.fgb = JaxGB(
+                orbits=waveform_args['orbits'],
+                t_obs=waveform_args['Tobs'],
+                t0=waveform_args['t0'],
+                n=self.N,
+                window=jaxgb_window(self.dt, self.N)
+            )
             # Create JIT-compiled version
             @jax.jit
             def get_tdi_jit(params, tdi_generation=waveform_args['tdi_generation'], tdi_combination=channel_combination):

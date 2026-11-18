@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 from jaxgb.jaxgb import JaxGB
 from jaxgb.params import GBObject
 
-from globalGB.search_utils_GB import GB_pe, PARAM_NAMES, GBConfig, GB_Searcher
+from globalGB.search_utils_GB import GB_pe, PARAM_NAMES, GBConfig, GB_Searcher, jaxgb_window
 from globalGB.config import load_config
 from NoiseEstimate.noise_estimate import *
 from DataLoader.data_loader import LISADataLoader
@@ -67,7 +67,8 @@ def main(argv=None):
     orbits=runner.waveform_args["orbits"],
     t_obs=runner.waveform_args["Tobs"],
     t0=runner.waveform_args["t0"],
-    n=2**10,
+    n=int(2**10),
+    window=jaxgb_window(config.dt, int(2**10))
     )
 
     try:

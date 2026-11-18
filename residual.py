@@ -3,7 +3,7 @@ from globalGB.config import load_config
 from globalGB.search_utils_GB import GBConfig
 from jaxgb.jaxgb import JaxGB
 import h5py
-from globalGB.search_utils_GB import tdi_subtraction
+from globalGB.search_utils_GB import tdi_subtraction, jaxgb_window
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -21,6 +21,7 @@ def main(argv=None):
     t_obs=runner.waveform_args["Tobs"],
     t0=runner.waveform_args["t0"],
     n=1024,
+    window=jaxgb_window(config.dt, 1024)
     )
     # load found sources h5 file
     with h5py.File('/home/stefan/LDC/Mojito/found_signals/GB_EMRI/GB/found_signals_Mojito_SNR_threshold_9_seed1.h5', 'r') as f:

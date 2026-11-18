@@ -37,6 +37,7 @@ from globalGB.search_utils_GB import (
     create_frequency_windows,
     tdi_subtraction,
     PARAM_NAMES,
+    jaxgb_window
 )
 from NoiseEstimate.noise_estimate import *
 from DataLoader.data_loader import LISADataLoader
@@ -300,6 +301,7 @@ class GBSearchRunner:
             t_obs=self.waveform_args["Tobs"],
             t0=self.waveform_args["t0"],
             n=1024,
+            window=jaxgb_window(self.cfg.dt, 1024)
         )
         # search = GB_Searcher(
         #     self.tdi_fs,
