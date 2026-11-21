@@ -1624,8 +1624,9 @@ class Segment_GB_Searcher:
             found_sources_outside = []
             for i in range(len(found_sources)):
                 f0 = found_sources[i][PARAM_INDICES['Frequency']]
-                freq_at_mean_of_signal = f0 + found_sources[i][PARAM_INDICES['FrequencyDerivative']]*(self.Tobs/2)
-                if lower_frequency < freq_at_mean_of_signal < upper_frequency:
+                #freq_at_mean_of_signal = f0 + found_sources[i][PARAM_INDICES['FrequencyDerivative']]*(self.Tobs/2)
+                #if lower_frequency < freq_at_mean_of_signal < upper_frequency:
+                if lower_frequency < f0 < upper_frequency:
                     found_sources_inside.append(found_sources[i])
                 else:
                     found_sources_outside.append(found_sources[i])
